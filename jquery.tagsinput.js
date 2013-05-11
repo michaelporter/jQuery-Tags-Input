@@ -74,92 +74,111 @@
   };
   
 	$.fn.addTag = function(value,options) {
-			options = jQuery.extend({focus:false,callback:true},options);
-			this.each(function() { 
-				var id = $(this).attr('id');
+		options = jQuery.extend({focus:false,callback:true},options);
+		this.each(function() { 
+			var id = $(this).attr('id');
 
-				var tagslist = $(this).val().split(delimiter[id]);
-				if (tagslist[0] == '') { 
-					tagslist = new Array();
-				}
+			var tagslist = $(this).val().split(delimiter[id]);
+			if (tagslist[0] == '') { 
+				tagslist = new Array();
+			}
 
-				value = jQuery.trim(value);
-		
-				if (options.unique) {
-					var skipTag = $(this).tagExist(value);
-					if(skipTag == true) {
-					    //Marks fake input as not_valid to let styling it
-    				    $('#'+id+'_tag').addClass('not_valid');
-    				}
-				} else {
-					var skipTag = false; 
-				}
-				
-				if (value !='' && skipTag != true) { 
-                    $('<span>').addClass('tag').append(
-                        $('<span>').text(value).append('&nbsp;&nbsp;'),
-                        $('<a>', {
-                            href  : '#',
-                            title : 'Removing tag',
-                            text  : 'x'
-                        }).click(function () {
-                            return $('#' + id).removeTag(escape(value));
-                        })
-                    ).insertBefore('#' + id + '_addTag');
-
-					tagslist.push(value);
-				
-					$('#'+id+'_tag').val('');
-					if (options.focus) {
-						$('#'+id+'_tag').focus();
-					} else {		
-						$('#'+id+'_tag').blur();
-					}
-					
-					$.fn.tagsInput.updateTagsField(this,tagslist);
-					
-					if (options.callback && tags_callbacks[id] && tags_callbacks[id]['onAddTag']) {
-						var f = tags_callbacks[id]['onAddTag'];
-						f.call(this, value);
-					}
-					if(tags_callbacks[id] && tags_callbacks[id]['onChange'])
-					{
-						var i = tagslist.length;
-						var f = tags_callbacks[id]['onChange'];
-						f.call(this, $(this), tagslist[i-1]);
-					}					
-				}
-		
-			});		
-			
-			return false;
-		};
-		
-	$.fn.removeTag = function(value) { 
-			value = unescape(value);
-			this.each(function() { 
-				var id = $(this).attr('id');
+			value = jQuery.trim(value);
 	
-				var old = $(this).val().split(delimiter[id]);
-					
-				$('#'+id+'_tagsinput .tag').remove();
-				str = '';
-				for (i=0; i< old.length; i++) { 
-					if (old[i]!=value) { 
-						str = str + delimiter[id] +old[i];
-					}
+			if (options.unique) {
+				var skipTag = $(this).tagExist(value);
+				if(skipTag == true) {
+				    //Marks fake input as not_valid to let styling it
+  				    $('#'+id+'_tag').addClass('not_valid');
+  				}
+			} else {
+				var skipTag = false; 
+			}
+			
+			if (value !='' && skipTag != true) { 
+        var newSpan = $('<span>').addClass('tag');
+
+        newSpan.append(
+          function() {
+            var newestSpan = $('<span>').text(value);
+
+            if (options.attr_names !== undefined && options.attr_values !== undefined) {
+              $.each(options.attr_names, function(i) {
+                newestSpan.attr(options.attr_names[i], options.attr_values[i]);
+              });
+            }
+
+            return newestSpan.append('&nbsp;&nbsp;');
+          },
+          $('<a>', {
+              href  : '#',
+              title : 'Remove tag',
+              text  : 'x'
+          }).click(function () {
+              return $('#' + id).removeTag(escape(value));
+          })
+        ).insertBefore('#' + id + '_addTag');
+
+				tagslist.push(value);
+			
+				$('#'+id+'_tag').val('');
+
+				if (options.focus) {
+					$('#'+id+'_tag').focus();
+				} else {		
+					$('#'+id+'_tag').blur();
 				}
 				
-				$.fn.tagsInput.importTags(this,str);
-
-				if (tags_callbacks[id] && tags_callbacks[id]['onRemoveTag']) {
-					var f = tags_callbacks[id]['onRemoveTag'];
+				$.fn.tagsInput.updateTagsField(this,tagslist);
+				
+				if (options.callback && tags_callbacks[id] && tags_callbacks[id]['onAddTag']) {
+					var f = tags_callbacks[id]['onAddTag'];
 					f.call(this, value);
 				}
-			});
-					
-			return false;
-		};
+				if(tags_callbacks[id] && tags_callbacks[id]['onChange'])
+				{
+					var i = tagslist.length;
+					var f = tags_callbacks[id]['onChange'];
+					f.call(this, $(this), tagslist[i-1]);
+				}					
+			}
+	
+		});		
+		
+		return false;
+	};
+		
+	$.fn.removeTag = function(value) { 
+		value = unescape(value);
+		this.each(function() { 
+			var id = $(this).attr('id');
+			var tagSelector = $('#'+id+'_tagsinput .tag');
+
+			var old = $(this).val().split(delimiter[id]);
+
+			if (tags_callbacks[id] && tags_callbacks[id]['beforeRemoveTag']) {
+				var f = tags_callbacks[id]['beforeRemoveTag'];
+				f.call(this, value);
+			}
+				
+			tagSelector.remove();
+			str = '';
+			for (i=0; i < old.length; i++) { 
+				if (old[i] != value) { 
+					str = str + delimiter[id] + old[i];
+				}
+			}
+			
+			$.fn.tagsInput.importTags(this,str);
+
+			if (tags_callbacks[id] && tags_callbacks[id]['onRemoveTag']) {
+				var f = tags_callbacks[id]['onRemoveTag'];
+				f.call(this, value);
+			}
+		});
+				
+		return false;
+	};
 	
 	$.fn.tagExist = function(val) {
 		var id = $(this).attr('id');
@@ -168,10 +187,10 @@
 	};
 	
 	// clear all existing tags and import new ones from a string
-	$.fn.importTags = function(str) {
+	$.fn.importTags = function(str, options) {
                 id = $(this).attr('id');
 		$('#'+id+'_tagsinput .tag').remove();
-		$.fn.tagsInput.importTags(this,str);
+		$.fn.tagsInput.importTags(this,str, options);
 	}
 		
 	$.fn.tagsInput = function(options) { 
@@ -211,9 +230,10 @@
 	
 			delimiter[id] = data.delimiter;
 			
-			if (settings.onAddTag || settings.onRemoveTag || settings.onChange) {
+			if (settings.onAddTag || settings.beforeRemoveTag || settings.onRemoveTag || settings.onChange) {
 				tags_callbacks[id] = new Array();
 				tags_callbacks[id]['onAddTag'] = settings.onAddTag;
+				tags_callbacks[id]['beforeRemoveTag'] = settings.beforeRemoveTag;
 				tags_callbacks[id]['onRemoveTag'] = settings.onRemoveTag;
 				tags_callbacks[id]['onChange'] = settings.onChange;
 			}
@@ -337,15 +357,21 @@
 		$(obj).val(tagslist.join(delimiter[id]));
 	};
 	
-	$.fn.tagsInput.importTags = function(obj,val) {			
+	$.fn.tagsInput.importTags = function(obj,val,options) {			
+    if (options !== undefined) {
+      options.callback = typeof options.callback !== 'undefined' ? options.callback : false
+    }
+    else {
+      options = {callback:false};
+    }
+
 		$(obj).val('');
 		var id = $(obj).attr('id');
 		var tags = val.split(delimiter[id]);
 		for (i=0; i<tags.length; i++) { 
-			$(obj).addTag(tags[i],{focus:false,callback:false});
+			$(obj).addTag(tags[i],{focus:false,callback:options.callback});
 		}
-		if(tags_callbacks[id] && tags_callbacks[id]['onChange'])
-		{
+		if(tags_callbacks[id] && tags_callbacks[id]['onChange']) {
 			var f = tags_callbacks[id]['onChange'];
 			f.call(obj, obj, tags[i]);
 		}
